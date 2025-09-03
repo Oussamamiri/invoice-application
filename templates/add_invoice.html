@@ -160,6 +160,97 @@
     }
 
 // TODO This code is not completed you need to add a busness logic for changing in quantity and removving the last item line.    
+
+// Auto-fill form if agent data is available
+document.addEventListener('DOMContentLoaded', function() {
+    const autoFillData = sessionStorage.getItem('autoFillInvoiceData');
+    if (autoFillData) {
+        try {
+            const data = JSON.parse(autoFillData);
+            
+            // Fill customer dropdown
+            const customerSelect = document.getElementById('customer');
+            if (data.customer_id) {
+                customerSelect.value = data.customer_id;
+            }
+            
+            // Fill invoice type
+            const invoiceSelect = document.getElementById('invoice');
+            if (data.invoice_type) {
+                invoiceSelect.value = data.invoice_type;
+            }
+            
+            // Clear existing article rows except the first one
+            const wrapper = document.getElementById('wrapper');
+            while (wrapper.children.length > 1) {
+                wrapper.removeChild(wrapper.lastChild);
+            }
+            
+            // Fill articles
+            if (data.articles && data.articles.length > 0) {
+                data.articles.forEach((article, index) => {
+                    const articleNum = index + 1;
+                    
+                    // Add new article row if needed
+                    if (index > 0) {
+                        const formAdd = `
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <label for="article-${articleNum}">#${articleNum} Item name </label>
+                                    <input required name="article" type="text" class="form-control" id="article-${articleNum}">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label for="qty-${articleNum}"> Quantity </label>
+                                    <input required name="qty" type="number" min="1" step="0.1"  class="form-control" id="qty-${articleNum}">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="unit-${articleNum}"> Unit Price </label>
+                                    <input required name="unit" type="number" min="1" step="0.1" onchange="handleChangeSingleArticle(this.id)" class="form-control" id="unit-${articleNum}">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="total-a-${articleNum}"> Total </label>
+                                    <input required name="total-a" type="number" min="1" step="0.1" readonly class="form-control" id="total-a-${articleNum}">
+                                </div>
+                            </div>
+                        `;
+                        wrapper.insertAdjacentHTML('beforeend', formAdd);
+                    }
+                    
+                    // Fill article data
+                    document.getElementById(`article-${articleNum}`).value = article.name || '';
+                    document.getElementById(`qty-${articleNum}`).value = article.quantity || '';
+                    document.getElementById(`unit-${articleNum}`).value = article.unit_price || '';
+                    document.getElementById(`total-a-${articleNum}`).value = article.total || '';
+                });
+            }
+            
+            // Fill total
+            document.getElementById('total').value = data.total || '';
+            
+            // Fill comments
+            if (data.comments) {
+                document.getElementById('comment').value = data.comments;
+            }
+            
+            // Clear the stored data
+            sessionStorage.removeItem('autoFillInvoiceData');
+            
+            // Show success message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                <strong>Form Auto-Filled!</strong> The invoice form has been automatically filled with sample data by the Form Filling Agent.
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            `;
+            document.querySelector('form').insertBefore(alert, document.querySelector('form').firstChild);
+            
+        } catch (error) {
+            console.error('Error auto-filling invoice form:', error);
+        }
+    }
+});
     
     </script>
 {% endblock content %}
