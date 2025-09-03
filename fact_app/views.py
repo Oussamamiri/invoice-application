@@ -23,6 +23,9 @@ from .decorators import *
 
 from django.utils.translation import gettext as _
 
+from django.http import JsonResponse
+from .form_agent import FormFillingAgent
+import json
 
 # Create your views here.
 
@@ -259,5 +262,109 @@ def get_invoice_pdf(request, *args, **kwargs):
 
     return response
 
+
+# Form Filling Agent Views
+class FormAgentView(LoginRequiredSuperuserMixim, View):
+    """
+    View to handle form filling agent functionality
+    """
+    template_name = 'form_agent.html'
+    
+    def get(self, request, *args, **kwargs):
+        """Display the form agent interface"""
+        # Get some statistics for display
+        customer_count = Customer.objects.count()
+        invoice_count = Invoice.objects.count()
+        
+        context = {
+            'customer_count': customer_count,
+            'invoice_count': invoice_count
+        }
+        
+        return render(request, self.template_name, context)
+
+
+@superuser_required
+def get_form_data(request):
+    """
+    API endpoint to get generated form data for auto-filling
+    """
+    if request.method == 'GET':
+        form_type = request.GET.get('type', 'customer')
+        customer_id = request.GET.get('customer_id')
+        
+        agent = FormFillingAgent()
+        
+        try:
+            if form_type == 'customer':
+                data = agent.generate_customer_data()
+            elif form_type == 'invoice':
+                data = agent.generate_invoice_data(customer_id)
+                if data is None:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'No customers available. Please create a customer first.'
+                    })
+            else:
+                return JsonResponse({'success': False, 'error': 'Invalid form type'})
+            
+            return JsonResponse({'success': True, 'data': data})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@superuser_required  
+def create_sample_data(request):
+    """
+    API endpoint to create sample customers and invoices
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            create_type = data.get('type', 'customer')
+            count = data.get('count', 1)
+            
+            agent = FormFillingAgent()
+            created_items = []
+            
+            if create_type == 'customer':
+                for _ in range(count):
+                    customer = agent.create_sample_customer(request.user)
+                    created_items.append({
+                        'id': customer.id,
+                        'name': customer.name,
+                        'email': customer.email
+                    })
+                    
+            elif create_type == 'invoice':
+                customer_id = data.get('customer_id')
+                for _ in range(count):
+                    invoice = agent.create_sample_invoice(request.user, customer_id)
+                    if invoice:
+                        created_items.append({
+                            'id': invoice.id,
+                            'customer': invoice.customer.name,
+                            'total': str(invoice.total),
+                            'type': invoice.get_invoice_type_display()
+                        })
+                    else:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'No customers available. Please create customers first.'
+                        })
+            
+            return JsonResponse({
+                'success': True, 
+                'created_items': created_items,
+                'message': f'Successfully created {len(created_items)} {create_type}(s)'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 

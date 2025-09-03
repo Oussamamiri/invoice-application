@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block content %}
+<br><br><br><br>
+
+{% csrf_token %}
+
+<h1 class="text-capitalize text-center mx-10 bg-dark text-white">Form Filling Agent</h1>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <strong>Welcome to the Form Filling Agent!</strong><br>
+                This agent can automatically generate sample data and fill forms for testing purposes.
+                <br><br>
+                <strong>Current Statistics:</strong>
+                <ul>
+                    <li>Customers: {{ customer_count }}</li>
+                    <li>Invoices: {{ invoice_count }}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Auto-Fill Forms Section -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Auto-Fill Forms</h5>
+                </div>
+                <div class="card-body">
+                    <p>Generate sample data and automatically fill existing forms:</p>
+                    
+                    <button id="fill-customer-form" class="btn btn-primary btn-block mb-2">
+                        Auto-Fill Customer Form
+                    </button>
+                    
+                    <button id="fill-invoice-form" class="btn btn-success btn-block mb-2">
+                        Auto-Fill Invoice Form
+                    </button>
+                    
+                    <div class="alert alert-warning mt-3" style="display: none;" id="form-fill-info">
+                        <small>Navigate to the Add Customer or Add Invoice page to see the auto-filled forms.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Sample Data Section -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Create Sample Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Automatically create sample customers and invoices:</p>
+                    
+                    <div class="form-group">
+                        <label for="sample-count">Number of items to create:</label>
+                        <input type="number" id="sample-count" class="form-control" value="1" min="1" max="10">
+                    </div>
+                    
+                    <button id="create-customers" class="btn btn-outline-primary btn-block mb-2">
+                        Create Sample Customers
+                    </button>
+                    
+                    <button id="create-invoices" class="btn btn-outline-success btn-block mb-2">
+                        Create Sample Invoices
+                    </button>
+                    
+                    <div id="creation-results" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Agent Activity Log</h5>
+                </div>
+                <div class="card-body">
+                    <div id="activity-log">
+                        <p class="text-muted">Agent activity will appear here...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<br><br><br>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Get CSRF token
+    function getCSRFToken() {
+        const token = document.querySelector('[name=csrfmiddlewaretoken]');
+        return token ? token.value : null;
+    }
+    
+    // Activity logging function
+    function logActivity(message, type = 'info') {
+        const log = document.getElementById('activity-log');
+        const timestamp = new Date().toLocaleTimeString();
+        const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-info';
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = `alert ${alertClass} alert-dismissible fade show`;
+        logEntry.innerHTML = `
+            <small><strong>${timestamp}:</strong> ${message}</small>
+            <button type="button" class="close" onclick="this.parentElement.remove()">
+                <span>&times;</span>
+            </button>
+        `;
+        
+        // Insert at the beginning
+        log.insertBefore(logEntry, log.firstChild);
+    }
+
+    // Auto-fill customer form
+    document.getElementById('fill-customer-form').addEventListener('click', function() {
+        fetch('/en/api/get-form-data?type=customer')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Store data in sessionStorage for the form page
+                    sessionStorage.setItem('autoFillCustomerData', JSON.stringify(data.data));
+                    logActivity('Customer form data generated and stored. Navigate to Add Customer page to see auto-filled form.', 'success');
+                    document.getElementById('form-fill-info').style.display = 'block';
+                    
+                    // Open customer form in new tab
+                    window.open('/en/add-customer', '_blank');
+                } else {
+                    logActivity('Error: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                logActivity('Error generating customer data: ' + error, 'error');
+            });
+    });
+
+    // Auto-fill invoice form
+    document.getElementById('fill-invoice-form').addEventListener('click', function() {
+        fetch('/en/api/get-form-data?type=invoice')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Store data in sessionStorage for the form page
+                    sessionStorage.setItem('autoFillInvoiceData', JSON.stringify(data.data));
+                    logActivity('Invoice form data generated and stored. Navigate to Add Invoice page to see auto-filled form.', 'success');
+                    document.getElementById('form-fill-info').style.display = 'block';
+                    
+                    // Open invoice form in new tab
+                    window.open('/en/add-invoice', '_blank');
+                } else {
+                    logActivity('Error: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                logActivity('Error generating invoice data: ' + error, 'error');
+            });
+    });
+
+    // Create sample customers
+    document.getElementById('create-customers').addEventListener('click', function() {
+        const count = document.getElementById('sample-count').value;
+        const csrfToken = getCSRFToken();
+        
+        if (!csrfToken) {
+            logActivity('Error: CSRF token not found', 'error');
+            return;
+        }
+        
+        fetch('/en/api/create-sample-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                type: 'customer',
+                count: parseInt(count)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                logActivity(data.message, 'success');
+                
+                // Display created items
+                const resultsDiv = document.getElementById('creation-results');
+                let itemsList = '<h6>Created Customers:</h6><ul>';
+                data.created_items.forEach(item => {
+                    itemsList += `<li>${item.name} (${item.email})</li>`;
+                });
+                itemsList += '</ul>';
+                resultsDiv.innerHTML = itemsList;
+                
+                // Update page stats after delay
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                logActivity('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            logActivity('Error creating customers: ' + error, 'error');
+        });
+    });
+
+    // Create sample invoices
+    document.getElementById('create-invoices').addEventListener('click', function() {
+        const count = document.getElementById('sample-count').value;
+        const csrfToken = getCSRFToken();
+        
+        if (!csrfToken) {
+            logActivity('Error: CSRF token not found', 'error');
+            return;
+        }
+        
+        fetch('/en/api/create-sample-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                type: 'invoice',
+                count: parseInt(count)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                logActivity(data.message, 'success');
+                
+                // Display created items
+                const resultsDiv = document.getElementById('creation-results');
+                let itemsList = '<h6>Created Invoices:</h6><ul>';
+                data.created_items.forEach(item => {
+                    itemsList += `<li>Invoice #${item.id} for ${item.customer} - $${item.total} (${item.type})</li>`;
+                });
+                itemsList += '</ul>';
+                resultsDiv.innerHTML = itemsList;
+                
+                // Update page stats after delay
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                logActivity('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            logActivity('Error creating invoices: ' + error, 'error');
+        });
+    });
+});
+</script>
+
+{% endblock content %}

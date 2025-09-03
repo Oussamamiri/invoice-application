@@ -75,4 +75,43 @@
 
 <br><br><br>
 
+<script>
+// Auto-fill form if agent data is available
+document.addEventListener('DOMContentLoaded', function() {
+    const autoFillData = sessionStorage.getItem('autoFillCustomerData');
+    if (autoFillData) {
+        try {
+            const data = JSON.parse(autoFillData);
+            
+            // Fill form fields
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('phone').value = data.phone || '';
+            document.getElementById('address').value = data.address || '';
+            document.getElementById('sex').value = data.sex || '';
+            document.getElementById('age').value = data.age || '';
+            document.getElementById('city').value = data.city || '';
+            document.getElementById('zip').value = data.zip_code || '';
+            
+            // Clear the stored data
+            sessionStorage.removeItem('autoFillCustomerData');
+            
+            // Show success message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                <strong>Form Auto-Filled!</strong> The form has been automatically filled with sample data by the Form Filling Agent.
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            `;
+            document.querySelector('form').insertBefore(alert, document.querySelector('form').firstChild);
+            
+        } catch (error) {
+            console.error('Error auto-filling form:', error);
+        }
+    }
+});
+</script>
+
 {% endblock content %}
